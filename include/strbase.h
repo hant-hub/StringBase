@@ -9,23 +9,38 @@
     is a Cutils implementation.
 */
 
+#define STRBASE_INAVLID_STR -1
+
+#ifndef STRBASE_LOAD_MAX
+#define STRBASE_LOAD_MAX 0.8
+#endif
+
+#ifndef STRBASE_MIN_SIZE
+#define STRBASE_MIN_SIZE 16
+#endif
+
+typedef u32 StrID; // direct index into strstore
+
 typedef struct StrBase {
     Allocator mem; // Assume Dynamic Memory
 
     // hashmap for deduplication
     u32 *stridx;
     u32 *meta; // meta data for robin hood hashing
-    u32 *refs; // reference count
 
     u32 hashsize;
     u32 hashcap;
 
     // Stable Storage (index stability)
     SString *strstore;
+    u32 *refs;
     u32 *freeslots; // free list
 
     u32 freesize;
     u32 maxslots;
 } StrBase;
 
+StrID StrBaseAdd(StrBase *base, SString s);
+SString StrBaseGet(StrBase *base, StrID s);
+void StrBaseDel(StrBase *base, StrID s);
 #endif

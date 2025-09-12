@@ -5,5 +5,10 @@
 
 
 int main() {
-    debuglog("test");
+    StrBase data = {GlobalAllocator};
+
+    StrID s = StrBaseAdd(&data, sstring("test"));
+    assert(s != STRBASE_INAVLID_STR);
+
+    return 0;
 }
