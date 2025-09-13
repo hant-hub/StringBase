@@ -1,6 +1,7 @@
 #define CU_IMPL
 #include <cutils.h>
 
+#define STRBASE_IMPL
 #include <strbase.h>
 
 int main() {

@@ -68,8 +68,7 @@ void printstatus(u32 shift, int verbose) {
         }
 
         if (WEXITSTATUS(status)) {
-            printf("\033[38;2;255;0;0m Failed : %d\033[0m\n",
-                   WEXITSTATUS(status));
+            printf("\033[38;2;255;0;0m Failed : %d\033[0m\n", WEXITSTATUS(status));
             return;
         }
     }

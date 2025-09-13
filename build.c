@@ -13,9 +13,8 @@ int main(int argc, char *argv[]) {
             // cutils
             sb_CMD() {
                 sb_cmd_main("curl");
-                sb_cmd_arg(
-                    "https://raw.githubusercontent.com/hant-hub/Cutils/refs/"
-                    "heads/main/include/cutils.h");
+                sb_cmd_arg("https://raw.githubusercontent.com/hant-hub/Cutils/refs/"
+                           "heads/main/include/cutils.h");
                 sb_cmd_opt("O");
                 sb_cmd_opt("-output-dir");
                 sb_cmd_arg("lib/include/");
@@ -66,21 +65,19 @@ int main(int argc, char *argv[]) {
         sb_fence();
 
         // Static lib
-        sb_EXEC() {
-            sb_set_out("strbase.o");
-            sb_add_flag("g");
+        // sb_EXEC() {
+        //    sb_set_out("strbase.o");
+        //    sb_add_flag("g");
 
-            sb_add_include_path("include/");
-            sb_add_include_path("lib/include");
+        //    sb_add_include_path("include/");
+        //    sb_add_include_path("lib/include");
 
-            sb_add_flag("c");
+        //    sb_add_flag("c");
 
-            sb_add_file("src/strbase.c");
+        //    sb_add_file("src/strbase.c");
 
-            sb_export_command();
-        }
-
-        sb_fence();
+        //    sb_export_command();
+        //}
 
         sb_CMD() {
             sb_cmd_main("ar");
