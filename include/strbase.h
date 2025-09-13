@@ -40,7 +40,11 @@ typedef struct StrBase {
     u32 maxslots;
 } StrBase;
 
+#define GetStr(base, id) ((base)->strstore[id])
+
 StrID StrBaseAdd(StrBase *base, SString s);
 SString StrBaseGet(StrBase *base, StrID s);
 void StrBaseDel(StrBase *base, StrID s);
+
+void StrBaseFree(StrBase *base);
 #endif
