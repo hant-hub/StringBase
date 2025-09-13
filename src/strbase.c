@@ -3,33 +3,61 @@
 #include <string.h>
 
 // hashmap
-static void HashResize(StrBase *b) {
-    if (b->hashsize < b->hashcap * STRBASE_LOAD_MAX)
+static void HashResize(StrBase *base) {
+    if (base->hashsize < base->hashcap * STRBASE_LOAD_MAX)
         return;
 
-    u32 oldsize = b->hashcap;
-    while (b->hashsize >= b->hashcap * STRBASE_LOAD_MAX) {
-        b->hashcap = b->hashcap ? b->hashcap * 2 : 16;
+    u32 oldsize = base->hashcap;
+    while (base->hashsize >= base->hashcap * STRBASE_LOAD_MAX) {
+        base->hashcap = base->hashcap ? base->hashcap * 2 : STRBASE_MIN_SIZE;
     }
 
-    u32 *oldkeys = b->stridx;
-    u32 *oldmeta = b->meta;
+    u32 *oldkeys = base->stridx;
+    i32 *oldmeta = base->meta;
 
-    b->stridx = Alloc(b->mem, b->hashcap * sizeof(u32));
-    b->meta = Alloc(b->mem, b->hashcap * sizeof(u32));
+    base->stridx = Alloc(base->mem, base->hashcap * sizeof(u32));
+    base->meta = Alloc(base->mem, base->hashcap * sizeof(u32));
 
-    memset(b->meta, -1, b->hashcap * sizeof(u32));
+    memset(base->meta, -1, base->hashcap * sizeof(u32));
 
-    // TODO(ELI): rehash
     for (u32 i = 0; i < oldsize; i++) {
         if (oldmeta[i] == -1)
             continue;
 
         //hash insert
+        u32 key = oldkeys[i];
+        u32 counter = 0;
+
+        SString s = base->strstore[key];
+        u32 idx = FNVHash32((u8*)s.data, s.len) % base->hashcap;
+
+        for (u32 i = 0; i < base->hashcap; i++) {
+            if (base->meta[idx] == STRBASE_INAVLID_STR) {
+                // empty
+                base->meta[idx] = counter;
+                base->stridx[idx] = key;
+                break;
+            }
+
+            if (base->meta[idx] < counter) {
+                // steal
+                u32 tmpcounter = base->meta[idx];
+                u32 tmpslot = base->stridx[idx];
+
+                base->meta[idx] = counter;
+                base->stridx[idx] = key;
+
+                counter = tmpcounter;
+                key = tmpslot;
+            }
+
+            idx = (idx + 1) % base->hashcap;
+            counter++;
+        }
     }
 
-    Free(b->mem, oldkeys, oldsize * sizeof(u32));
-    Free(b->mem, oldmeta, oldsize * sizeof(u32));
+    Free(base->mem, oldkeys, oldsize * sizeof(u32));
+    Free(base->mem, oldmeta, oldsize * sizeof(u32));
 }
 
 // dyn array
@@ -42,7 +70,7 @@ static u32 AllocSlot(StrBase *base) {
         base->strstore =
             Realloc(base->mem, base->strstore, oldsize * sizeof(SString),
                     base->maxslots * sizeof(SString));
-        memset(base->strstore, 0, base->maxslots * sizeof(SString));
+        memset(&base->strstore[oldsize], 0, (base->maxslots - oldsize) * sizeof(SString));
 
         base->refs = Realloc(base->mem, base->refs, oldsize * sizeof(u32),
                              base->maxslots * sizeof(u32));
@@ -70,6 +98,7 @@ StrID StrBaseAdd(StrBase *base, SString s) {
     u32 counter = 0;
 
     u32 out = STRBASE_INAVLID_STR;
+    base->hashsize++;
 
     for (u32 i = 0; i < base->hashcap; i++) {
         if (base->meta[idx] == STRBASE_INAVLID_STR) {
@@ -82,6 +111,7 @@ StrID StrBaseAdd(StrBase *base, SString s) {
             base->strstore[slot] = Sstrdup(base->mem, s);
             base->refs[slot] = 1;
 
+
             return slot;
         }
 
@@ -92,6 +122,7 @@ StrID StrBaseAdd(StrBase *base, SString s) {
 
         if (Sstrcmp(s, base->strstore[base->stridx[idx]])) {
             // duplicate
+            base->hashsize--;
             base->refs[base->stridx[idx]]++;
             return base->stridx[idx];
         }
@@ -149,7 +180,58 @@ StrID StrBaseAdd(StrBase *base, SString s) {
 SString StrBaseGet(StrBase *base, StrID s) { return (SString){0}; }
 
 // Decrement reference counter (free when zero)
-void StrBaseDel(StrBase *base, StrID s) {}
+void StrBaseDel(StrBase *base, StrID key) {
+    SString s = GetStr(base, key);
+
+    u32 idx = FNVHash32((u8 *)s.data, s.len) % base->hashcap;
+    u32 counter = 0;
+
+    for (u32 i = 0; i < base->hashcap; i++) {
+        if (base->meta[idx] == STRBASE_INAVLID_STR) {
+            // empty
+            return;
+        }
+
+        if (base->meta[idx] < counter) {
+            // steal
+            return;
+        }
+
+        if (Sstrcmp(s, GetStr(base, base->stridx[idx]))) {
+            //match
+            base->refs[base->stridx[idx]]--;
+            if (!base->refs[base->stridx[idx]]) break;
+            return;
+        }
+
+        idx = (idx + 1) % base->hashcap;
+        counter++;
+    }
+    //free memory
+    {
+        base->hashsize--;
+
+        StrID key = base->stridx[idx];
+        base->freeslots[base->freesize++] = key;
+
+        Free(base->mem, base->strstore[key].data, base->strstore[key].len); 
+        base->strstore[key] = (SString){};
+        base->refs[key] = 0;
+    }
+
+
+    while (base->meta[idx] != STRBASE_INAVLID_STR) {
+        u32 next = (idx + 1) % base->hashcap;
+        if (!base->meta[next]) break;
+
+        base->meta[idx] = base->meta[next];
+        base->stridx[idx] = base->stridx[next];
+
+        idx = next;
+    }
+        base->meta[idx] = STRBASE_INAVLID_STR;
+        base->stridx[idx] = 0;
+}
 
 void StrBaseFree(StrBase *base) {
     for (u32 i = 0; i < base->maxslots; i++) {

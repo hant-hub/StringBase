@@ -7,3 +7,5 @@ BraceWrapping:
 
 AllowShortLoopsOnASingleLine: true
 AllowShortBlocksOnASingleLine: true
+
+ColumnLimit: 100

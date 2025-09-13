@@ -12,11 +12,11 @@
 #define STRBASE_INAVLID_STR -1
 
 #ifndef STRBASE_LOAD_MAX
-#define STRBASE_LOAD_MAX 0.8
+#define STRBASE_LOAD_MAX 0.75
 #endif
 
 #ifndef STRBASE_MIN_SIZE
-#define STRBASE_MIN_SIZE 16
+#define STRBASE_MIN_SIZE 4
 #endif
 
 typedef u32 StrID; // direct index into strstore
@@ -26,7 +26,7 @@ typedef struct StrBase {
 
     // hashmap for deduplication
     u32 *stridx;
-    u32 *meta; // meta data for robin hood hashing
+    i32 *meta; // meta data for robin hood hashing
 
     u32 hashsize;
     u32 hashcap;
